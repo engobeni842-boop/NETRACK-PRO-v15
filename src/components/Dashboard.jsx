@@ -1,30 +1,73 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './Dashboard.css';
 
-const PAIRS = ['BTC/USD', 'ETH/USD', 'SOL/USD', 'AVAX/USD', 'XAU/USD', 'EUR/USD'];
-const PLATFORMS = {
+interface Signal {
+  id: number;
+  pair: string;
+  type: 'buy' | 'sell';
+  entry: string;
+  tp: string;
+  sl: string;
+  rr: string;
+  confidence: 'high' | 'medium';
+  time: string;
+}
+
+interface ChatMessage {
+  type: 'system' | 'user';
+  text: string;
+}
+
+interface Report {
+  text: string;
+  color: string;
+}
+
+interface Candle {
+  green: boolean;
+  height: number;
+}
+
+interface WatchlistItem {
+  pair: string;
+  price: number;
+  change: number;
+}
+
+const PAIRS: string[] = ['BTC/USD', 'ETH/USD', 'SOL/USD', 'AVAX/USD', 'XAU/USD', 'EUR/USD'];
+
+const PLATFORMS: Record<string, string> = {
   exness: 'Exness Terminal',
   tradingview: 'TradingView Pro',
   metatrader: 'MetaTrader 5',
   cTrader: 'cTrader Web'
 };
 
-export default function Dashboard() {
-  const [activeSignals, setActiveSignals] = useState([]);
-  const [selectedSignal, setSelectedSignal] = useState(null);
-  const [currentPair, setCurrentPair] = useState('BTC/USD');
-  const [currentPrice, setCurrentPrice] = useState(67245.30);
-  const [priceChange, setPriceChange] = useState(2.4);
-  const [platform, setPlatform] = useState('exness');
-  const [chatMessages, setChatMessages] = useState([
+const WATCHLIST: WatchlistItem[] = [
+  { pair: 'BTC/USD', price: 67245.30, change: 2.4 },
+  { pair: 'ETH/USD', price: 3520.15, change: 1.8 },
+  { pair: 'SOL/USD', price: 148.20, change: -0.5 },
+  { pair: 'AVAX/USD', price: 28.45, change: 3.2 },
+  { pair: 'XAU/USD', price: 2435.60, change: 0.4 },
+  { pair: 'EUR/USD', price: 1.0845, change: -0.1 },
+];
+
+export default function Dashboard(): JSX.Element {
+  const [activeSignals, setActiveSignals] = useState<Signal[]>([]);
+  const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
+  const [currentPair, setCurrentPair] = useState<string>('BTC/USD');
+  const [currentPrice, setCurrentPrice] = useState<number>(67245.30);
+  const [priceChange, setPriceChange] = useState<number>(2.4);
+  const [platform, setPlatform] = useState<string>('exness');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { type: 'system', text: '📡 Connected to live chart feed. Switch platforms to sync chat.' }
   ]);
-  const [candles, setCandles] = useState([]);
-  const [reports, setReports] = useState([
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [reports, setReports] = useState<Report[]>([
     { text: 'Signal delay on MetaTrader — investigating', color: 'var(--accent-yellow)' }
   ]);
-  const [perf, setPerf] = useState({ winRate: '78.4%', profitFactor: '2.34', pnl: '+$12,847' });
-  const chatEndRef = useRef(null);
+  const [perf] = useState({ winRate: '78.4%', profitFactor: '2.34', pnl: '+$12,847' });
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     generateCandles();
@@ -48,8 +91,8 @@ export default function Dashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  function generateCandles() {
-    const newCandles = [];
+  function generateCandles(): void {
+    const newCandles: Candle[] = [];
     for (let i = 0; i < 16; i++) {
       newCandles.push({
         green: Math.random() > 0.45,
@@ -59,16 +102,16 @@ export default function Dashboard() {
     setCandles(newCandles);
   }
 
-  function generateSignals() {
-    const newSignals = [];
+  function generateSignals(): void {
+    const newSignals: Signal[] = [];
     for (let i = 0; i < 2; i++) {
       const pair = PAIRS[Math.floor(Math.random() * PAIRS.length)];
-      const type = Math.random() > 0.5 ? 'buy' : 'sell';
+      const type: 'buy' | 'sell' = Math.random() > 0.5 ? 'buy' : 'sell';
       const entry = (Math.random() * 5000 + 20000).toFixed(2);
       const tp = type === 'buy' ? (parseFloat(entry) * 1.03).toFixed(2) : (parseFloat(entry) * 0.97).toFixed(2);
       const sl = type === 'buy' ? (parseFloat(entry) * 0.985).toFixed(2) : (parseFloat(entry) * 1.015).toFixed(2);
-      const rr = (Math.abs(tp - entry) / Math.abs(entry - sl)).toFixed(2);
-      const confidence = Math.random() > 0.6 ? 'high' : 'medium';
+      const rr = (Math.abs(parseFloat(tp) - parseFloat(entry)) / Math.abs(parseFloat(entry) - parseFloat(sl))).toFixed(2);
+      const confidence: 'high' | 'medium' = Math.random() > 0.6 ? 'high' : 'medium';
       newSignals.push({
         id: Date.now() + i,
         pair,
@@ -87,7 +130,7 @@ export default function Dashboard() {
     selectSignal(newSignals[0].id, updated);
   }
 
-  function selectSignal(id, signals = activeSignals) {
+  function selectSignal(id: number, signals: Signal[] = activeSignals): void {
     const sig = signals.find(s => s.id === id);
     if (!sig) return;
     setSelectedSignal(sig);
@@ -95,13 +138,13 @@ export default function Dashboard() {
     addChat('system', `📊 Selected ${sig.pair} ${sig.type.toUpperCase()} @ $${parseFloat(sig.entry).toLocaleString()}`);
   }
 
-  function switchPlatform(key) {
+  function switchPlatform(key: string): void {
     setPlatform(key);
     addChat('system', `🔄 Switched to ${PLATFORMS[key]} — chart data syncing...`);
     generateCandles();
   }
 
-  function switchPair(pair, price, change) {
+  function switchPair(pair: string, price: number, change: number): void {
     setCurrentPair(pair);
     setCurrentPrice(price);
     setPriceChange(change);
@@ -109,13 +152,14 @@ export default function Dashboard() {
     addChat('system', `📈 Chart switched to ${pair} — live feed active`);
   }
 
-  function addChat(type, text) {
+  function addChat(type: 'system' | 'user', text: string): void {
     setChatMessages(prev => [...prev, { type, text }]);
   }
 
-  function sendChat(e) {
-    const input = e.target.previousElementSibling || e.target.parentElement.querySelector('input');
-    const text = input.value.trim();
+  function sendChat(e: React.KeyboardEvent<HTMLInputElement> | React.MouseEvent<HTMLButtonElement>): void {
+    const target = e.target as HTMLElement;
+    const input = target.previousElementSibling as HTMLInputElement || target.parentElement?.querySelector('input') as HTMLInputElement;
+    const text = input?.value.trim();
     if (!text) return;
     addChat('user', text);
     input.value = '';
@@ -131,8 +175,8 @@ export default function Dashboard() {
     }, 800 + Math.random() * 1000);
   }
 
-  function submitReport() {
-    const input = document.getElementById('report-input');
+  function submitReport(): void {
+    const input = document.getElementById('report-input') as HTMLInputElement;
     const text = input?.value.trim();
     if (!text) return;
     setReports(prev => [{ text, color: 'var(--accent-blue)' }, ...prev]);
@@ -162,14 +206,14 @@ export default function Dashboard() {
 
       {/* LEFT COLUMN */}
       <div className="left-col panel scrollbar">
-        <div className="panel-title">Today's Signals <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{activeSignals.length} Active</span></div>
+        <div className="panel-title">Today&apos;s Signals <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{activeSignals.length} Active</span></div>
         <button className="btn btn-primary generate-btn" onClick={generateSignals}>⚡ Generate 2 Signals</button>
         <div id="signals-container">
           {activeSignals.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">📡</div>
               <div style={{ fontSize: 13, marginBottom: 4 }}>No signals yet today</div>
-              <div style={{ fontSize: 11 }}>Click "Generate 2 Signals" or check back at 8AM / 8PM</div>
+              <div style={{ fontSize: 11 }}>Click &quot;Generate 2 Signals&quot; or check back at 8AM / 8PM</div>
             </div>
           ) : (
             activeSignals.map(s => (
@@ -286,14 +330,7 @@ export default function Dashboard() {
 
         <div className="panel-title" style={{ marginTop: 16 }}>Watchlist</div>
         <div>
-          {[
-            { pair: 'BTC/USD', price: 67245.30, change: 2.4 },
-            { pair: 'ETH/USD', price: 3520.15, change: 1.8 },
-            { pair: 'SOL/USD', price: 148.20, change: -0.5 },
-            { pair: 'AVAX/USD', price: 28.45, change: 3.2 },
-            { pair: 'XAU/USD', price: 2435.60, change: 0.4 },
-            { pair: 'EUR/USD', price: 1.0845, change: -0.1 },
-          ].map(item => (
+          {WATCHLIST.map(item => (
             <div key={item.pair} className="watchlist-item" onClick={() => switchPair(item.pair, item.price, item.change)}>
               <span className="watchlist-pair">{item.pair}</span>
               <span className={`watchlist-change ${item.change >= 0 ? 'up' : 'down'}`}>{(item.change >= 0 ? '+' : '') + item.change}%</span>
