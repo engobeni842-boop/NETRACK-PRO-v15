@@ -1,186 +1,131 @@
-<<<<<<< HEAD
-import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { Lock, Mail, UserPlus, LogIn } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
-export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+interface AuthProps {
+  onAuthSuccess?: () => void;
+}
+
+export default function Auth({ onAuthSuccess }: AuthProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, signUp } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  useEffect(() => {
+    setError('');
+  }, [isSignUp]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    const { error } = isLogin 
-      ? await signIn(email, password)
-      : await signUp(email, password);
-      
-    if (error) setError(error.message);
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        if (signUpError) throw signUpError;
+        setError('Check your email to confirm your account.');
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) throw signInError;
+        onAuthSuccess?.();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed. Check credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-md border border-gray-700 shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+      <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
-            NETRACK PRO
-          </h1>
-          <p className="text-gray-400">{isLogin ? 'Welcome back' : 'Create your account'}</p>
+          <h2 className="text-3xl font-bold text-white tracking-tight">
+            {isSignUp ? 'Create Account' : 'Welcome Back'}
+          </h2>
+          <p className="text-gray-400 mt-2 text-sm">
+            {isSignUp ? 'Register to access NETRACK PRO' : 'Sign in to your trading dashboard'}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Email</label>
+            <label className="block text-sm text-gray-400 mb-1.5">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 text-gray-500" size={18} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-purple-500 outline-none"
-                placeholder="you@example.com"
+                className="w-full bg-gray-950 border border-gray-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                placeholder="trader@example.com"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Password</label>
+            <label className="block text-sm text-gray-400 mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 text-gray-500" size={18} />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-purple-500 outline-none"
-                placeholder="••••••••"
+                className="w-full bg-gray-950 border border-gray-700 rounded-lg pl-10 pr-10 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 required
+                minLength={6}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
-          {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">{error}</p>}
+          {error && (
+            <div className="flex items-start gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 p-3 rounded-lg">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-all duration-200 shadow-lg shadow-blue-900/20"
           >
-            {isLogin ? <><LogIn size={18} /> Login</> : <><UserPlus size={18} /> Sign Up</>}
+            {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-400 mt-6">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button 
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-purple-400 hover:text-purple-300 font-semibold"
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-sm text-gray-400 hover:text-blue-400 transition-colors"
           >
-            {isLogin ? 'Sign Up' : 'Login'}
+            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
           </button>
-        </p>
-
-        <div className="mt-6 p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-          <p className="text-xs text-purple-300 text-center">
-            Owner login: <span className="font-mono">engobeni842@gmail.com</span>
-          </p>
         </div>
       </div>
     </div>
   );
-=======
-import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { Lock, Mail, UserPlus, LogIn } from 'lucide-react';
-
-export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const { signIn, signUp } = useAuth();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    const { error } = isLogin 
-      ? await signIn(email, password)
-      : await signUp(email, password);
-      
-    if (error) setError(error.message);
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-md border border-gray-700 shadow-2xl">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-2">
-            NETRACK PRO
-          </h1>
-          <p className="text-gray-400">{isLogin ? 'Welcome back' : 'Create your account'}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 text-gray-500" size={18} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-purple-500 outline-none"
-                placeholder="you@example.com"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-500" size={18} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-purple-500 outline-none"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-
-          {error && <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-lg">{error}</p>}
-
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
-          >
-            {isLogin ? <><LogIn size={18} /> Login</> : <><UserPlus size={18} /> Sign Up</>}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-400 mt-6">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button 
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-purple-400 hover:text-purple-300 font-semibold"
-          >
-            {isLogin ? 'Sign Up' : 'Login'}
-          </button>
-        </p>
-
-        <div className="mt-6 p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
-          <p className="text-xs text-purple-300 text-center">
-            Owner login: <span className="font-mono">engobeni842@gmail.com</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  );
->>>>>>> 897a1bab5625ac3688a904f98344895b392ead82
 }
